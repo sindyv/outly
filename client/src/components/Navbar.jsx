@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import Logo from '../assets/Logo';
 
 export default function Navbar() {
   const { token, email, isAdmin, logout } = useAuth();
@@ -10,6 +11,7 @@ export default function Navbar() {
       {/* Desktop top bar */}
       <nav className="flex items-center justify-between border-b border-stone-200 bg-white px-6 py-4">
         <Link to="/" className="flex items-center gap-2 text-lg font-bold tracking-tight text-stone-900 uppercase">
+          <Logo className="h-7 w-7" />
           Outly
           <span className="rounded-full bg-stone-900 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white normal-case">beta</span>
         </Link>

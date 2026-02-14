@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [sent, setSent] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -20,11 +22,30 @@ export default function Register() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      login(data.token, data.email, data.role);
-      navigate('/');
+
+      if (data.token) {
+        login(data.token, data.email, data.role);
+        navigate('/');
+      } else {
+        setSent(true);
+      }
     } catch (err) {
       setError(err.message);
     }
+  }
+
+  if (sent) {
+    return (
+      <div className="mx-auto mt-16 max-w-sm border border-stone-200 bg-white p-8">
+        <h2 className="mb-4 text-xl font-bold italic">Sjekk e-posten din</h2>
+        <p className="text-sm text-stone-600">
+          Vi har sendt en bekreftelseslenke til <strong>{email}</strong>. Klikk på lenken for å aktivere kontoen din.
+        </p>
+        <p className="mt-4 text-sm text-stone-400">
+          <Link to="/login" className="text-stone-900 underline transition hover:text-stone-500">Gå til innlogging</Link>
+        </p>
+      </div>
+    );
   }
 
   return (
