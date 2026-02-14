@@ -1,0 +1,8 @@
+node_modules
+client/node_modules
+.env
+.git
+.claude
+inspiration
+dist
+client/dist
