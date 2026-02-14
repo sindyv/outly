@@ -4,6 +4,7 @@ const admin = require('../middleware/admin');
 const User = require('../models/User');
 const Product = require('../models/Product');
 const Search = require('../models/Search');
+const ScrapeLog = require('../models/ScrapeLog');
 
 const router = express.Router();
 
@@ -87,7 +88,7 @@ router.get('/stats', async (req, res) => {
     const thirtyDaysAgo = new Date(now);
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const [totalProducts, totalUsers, productsToday, discountAgg, categoryAgg, discountDist, dailyAgg] =
+    const [totalProducts, totalUsers, productsToday, discountAgg, categoryAgg, discountDist, dailyAgg, lastScrape] =
       await Promise.all([
         Product.countDocuments(),
         User.countDocuments(),
@@ -139,6 +140,7 @@ router.get('/stats', async (req, res) => {
           },
           { $sort: { _id: 1 } },
         ]),
+        ScrapeLog.findOne().sort({ startedAt: -1 }).lean(),
       ]);
 
     const bucketLabels = { 0: '0-20%', 20: '20-40%', 40: '40-60%', 60: '60-80%', 80: '80-100%' };
@@ -154,7 +156,20 @@ router.get('/stats', async (req, res) => {
       topCategories: categoryAgg.map((c) => ({ category: c._id, count: c.count })),
       discountDistribution,
       productsPerDay: dailyAgg.map((d) => ({ date: d._id, count: d.count })),
+      lastScrape: lastScrape || null,
+      removedProducts: lastScrape?.removedProducts || 0,
     });
+  } catch {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Scrape logs
+router.get('/scrape-logs', async (req, res) => {
+  try {
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    const logs = await ScrapeLog.find().sort({ startedAt: -1 }).limit(limit).lean();
+    res.json(logs);
   } catch {
     res.status(500).json({ error: 'Server error' });
   }

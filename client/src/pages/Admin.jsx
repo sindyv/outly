@@ -196,7 +196,7 @@ function StatsTab({ apiFetch }) {
         <StatCard label="Produkter totalt" value={stats.totalProducts} />
         <StatCard label="Brukere totalt" value={stats.totalUsers} />
         <StatCard label="Nye i dag" value={stats.productsToday} />
-        <StatCard label="Snitt rabatt" value={`${stats.avgDiscount}%`} />
+        <StatCard label="Fjernet i dag" value={stats.removedProducts ?? 0} />
       </div>
 
       <div className="grid gap-8 lg:grid-cols-2">
@@ -241,28 +241,101 @@ function StatsTab({ apiFetch }) {
   );
 }
 
+function ScraperTab({ apiFetch }) {
+  const [logs, setLogs] = useState([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiFetch('/api/admin/scrape-logs?limit=50');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setLogs(data);
+      } catch (err) {
+        setError(err.message);
+      }
+    })();
+  }, [apiFetch]);
+
+  if (error) return <p className="text-sm font-medium text-red-500">{error}</p>;
+  if (logs.length === 0) return <p className="text-sm text-stone-400">Ingen scrape-logger enda.</p>;
+
+  const last = logs[0];
+  const lastTime = new Date(last.startedAt).toLocaleString('nb-NO');
+  const duration = last.finishedAt && last.startedAt
+    ? Math.round((new Date(last.finishedAt) - new Date(last.startedAt)) / 1000)
+    : null;
+
+  return (
+    <div className="space-y-8">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Siste scrape" value={lastTime} />
+        <StatCard label="Status" value={last.status === 'success' ? 'OK' : 'Feilet'} />
+        <StatCard label="Fjernede produkter" value={last.removedProducts ?? 0} />
+        <StatCard label="Varighet" value={duration != null ? `${duration}s` : '-'} />
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-stone-200 text-xs uppercase tracking-wide text-stone-400">
+              <th className="pb-3 pr-4 font-medium">Tidspunkt</th>
+              <th className="pb-3 pr-4 font-medium">Status</th>
+              <th className="pb-3 pr-4 font-medium">Totalt</th>
+              <th className="pb-3 pr-4 font-medium">Nye</th>
+              <th className="pb-3 pr-4 font-medium">Fjernet</th>
+              <th className="pb-3 font-medium">Varighet</th>
+            </tr>
+          </thead>
+          <tbody>
+            {logs.map((log) => {
+              const dur = log.finishedAt && log.startedAt
+                ? Math.round((new Date(log.finishedAt) - new Date(log.startedAt)) / 1000)
+                : null;
+              return (
+                <tr key={log._id} className="border-b border-stone-100">
+                  <td className="py-3 pr-4 text-stone-700">{new Date(log.startedAt).toLocaleString('nb-NO')}</td>
+                  <td className="py-3 pr-4">
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${log.status === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      {log.status === 'success' ? 'OK' : 'Feilet'}
+                    </span>
+                  </td>
+                  <td className="py-3 pr-4 text-stone-700">{log.totalProducts}</td>
+                  <td className="py-3 pr-4 text-stone-700">{log.newProducts}</td>
+                  <td className="py-3 pr-4 text-stone-700">{log.removedProducts}</td>
+                  <td className="py-3 text-stone-700">{dur != null ? `${dur}s` : '-'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function Admin() {
   const { apiFetch } = useAuth();
-  const [tab, setTab] = useState('users');
+  const [tab, setTab] = useState('stats');
 
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold italic">Admin</h1>
       <div className="mb-6 flex gap-1">
-        <button
-          onClick={() => setTab('users')}
-          className={`px-4 py-2 text-sm font-medium transition ${tab === 'users' ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'}`}
-        >
-          Brukere
-        </button>
-        <button
-          onClick={() => setTab('stats')}
-          className={`px-4 py-2 text-sm font-medium transition ${tab === 'stats' ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'}`}
-        >
-          Statistikk
-        </button>
+        {['stats', 'users', 'scraper'].map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-2 text-sm font-medium transition ${tab === t ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'}`}
+          >
+            {t === 'users' ? 'Brukere' : t === 'stats' ? 'Statistikk' : 'Scraper'}
+          </button>
+        ))}
       </div>
-      {tab === 'users' ? <UsersTab apiFetch={apiFetch} /> : <StatsTab apiFetch={apiFetch} />}
+      {tab === 'users' && <UsersTab apiFetch={apiFetch} />}
+      {tab === 'stats' && <StatsTab apiFetch={apiFetch} />}
+      {tab === 'scraper' && <ScraperTab apiFetch={apiFetch} />}
     </div>
   );
 }

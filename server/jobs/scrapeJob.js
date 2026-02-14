@@ -1,16 +1,21 @@
 const cron = require('node-cron');
 const Product = require('../models/Product');
 const Search = require('../models/Search');
-const User = require('../models/User');
+const ScrapeLog = require('../models/ScrapeLog');
 const { scrapeAll } = require('../services/scraper');
 const { sendNewProductsEmail } = require('../services/notifier');
 
 async function runScrape() {
+  const startedAt = new Date();
+
   try {
     const products = await scrapeAll();
     const newProducts = [];
+    const scrapedSkus = new Set();
 
     for (const product of products) {
+      scrapedSkus.add(product.sku);
+
       const result = await Product.findOneAndUpdate(
         { sku: product.sku },
         {
@@ -40,7 +45,22 @@ async function runScrape() {
       }
     }
 
-    console.log(`Upserted ${products.length} products, ${newProducts.length} new`);
+    // Count products in DB whose SKU was not in this scrape
+    const removedCount = await Product.countDocuments({
+      sku: { $nin: Array.from(scrapedSkus) },
+    });
+
+    // Log the scrape result
+    await ScrapeLog.create({
+      startedAt,
+      finishedAt: new Date(),
+      status: 'success',
+      totalProducts: products.length,
+      newProducts: newProducts.length,
+      removedProducts: removedCount,
+    });
+
+    console.log(`Upserted ${products.length} products, ${newProducts.length} new, ${removedCount} removed`);
 
     if (newProducts.length === 0) return;
 
@@ -83,6 +103,13 @@ async function runScrape() {
     }
   } catch (err) {
     console.error('Scrape job error:', err);
+
+    await ScrapeLog.create({
+      startedAt,
+      finishedAt: new Date(),
+      status: 'failed',
+      error: err.message || String(err),
+    }).catch(() => {}); // Don't let logging failure mask the original error
   }
 }
 
