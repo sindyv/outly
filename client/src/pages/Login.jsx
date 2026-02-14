@@ -20,7 +20,7 @@ export default function Login() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      login(data.token, data.email);
+      login(data.token, data.email, data.role);
       navigate('/');
     } catch (err) {
       setError(err.message);

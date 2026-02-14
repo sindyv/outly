@@ -5,10 +5,18 @@ import Products from './pages/Products'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Searches from './pages/Searches'
+import Admin from './pages/Admin'
 
 function ProtectedRoute({ children }) {
   const { token } = useAuth()
   return token ? children : <Navigate to="/login" />
+}
+
+function AdminRoute({ children }) {
+  const { token, isAdmin } = useAuth()
+  if (!token) return <Navigate to="/login" />
+  if (!isAdmin) return <Navigate to="/" />
+  return children
 }
 
 function App() {
@@ -21,6 +29,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/searches" element={<ProtectedRoute><Searches /></ProtectedRoute>} />
+          <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
         </Routes>
       </main>
     </div>
